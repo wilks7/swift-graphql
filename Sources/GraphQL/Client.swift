@@ -63,6 +63,7 @@ public struct Client: Sendable {
         
         self.urlSession = urlSession
         decoder.dateDecodingStrategy = .flexibleDateDecoding
+        encoder.dateEncodingStrategy = .iso8601
         self.encoder = encoder
         self.decoder = decoder
         

@@ -33,6 +33,10 @@ public struct FileUpload: Codable, Sendable {
     public let filename: String
     /// The MIME type of the file (e.g. `"image/heic"`, `"application/pdf"`).
     public let mimeType: String
+    /// The JSON path in the variables where this file should be mapped
+    /// (e.g. `"variables.input.file"`). When `nil`, defaults to
+    /// `"variables.input.files.{index}"` for backward compatibility.
+    public let variablePath: String?
 
     /// Creates a file upload with the given data, filename, and MIME type.
     ///
@@ -40,12 +44,14 @@ public struct FileUpload: Codable, Sendable {
     ///   - data: The raw file data.
     ///   - filename: The filename to report to the server.
     ///   - mimeType: The MIME type of the file.
-    public init(data: Data, filename: String, mimeType: String) {
+    ///   - variablePath: The JSON path in the variables for this file. Defaults to `nil`.
+    public init(data: Data, filename: String, mimeType: String, variablePath: String? = nil) {
         self.data = data
         self.filename = filename
         self.mimeType = mimeType
+        self.variablePath = variablePath
     }
-    
+
     public func encode(to encoder: Encoder) throws {
         // Files are encoded as null in the variables JSON
         // The actual file data is sent in the multipart form
@@ -100,29 +106,26 @@ extension Client {
         variables: V,
         files: [FileUpload]
     ) throws -> URLRequest {
-        
-        // Create the variable map - always treat images as an array
+
+        // Build the variable map — each file's variablePath controls where
+        // the server injects the upload. Falls back to the legacy array pattern.
         var map: [String: [String]] = [:]
-        for (index, _) in files.enumerated() {
-            map[String(index)] = ["variables.input.files.\(index)"]
+        for (index, file) in files.enumerated() {
+            let path = file.variablePath ?? "variables.input.files.\(index)"
+            map[String(index)] = [path]
         }
-        
-        // Create variables with null placeholders for files
-        var variablesDict = try JSONSerialization.jsonObject(with: encoder.encode(variables)) as! [String: Any]
-        if var inputDict = variablesDict["input"] as? [String: Any] {
-            // Always create an array of nulls, even for single files
-            inputDict["files"] = Array(repeating: NSNull(), count: files.count)
-            variablesDict["input"] = inputDict
-        }
-        let variablesData = try JSONSerialization.data(withJSONObject: variablesDict)
-        
+
+        // FileUpload.encode(to:) writes null, so the encoded JSON already
+        // has null placeholders at the correct positions.
+        let variablesData = try encoder.encode(variables)
+
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        
+
         let boundary = "GraphQL-Upload-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        
+
         let body = try buildMultipartBody(
             boundary: boundary,
             query: query,
@@ -130,9 +133,9 @@ extension Client {
             map: map,
             files: files
         )
-        
+
         request.httpBody = body
-        
+
         return request
     }
     

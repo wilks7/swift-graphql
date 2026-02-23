@@ -50,8 +50,13 @@ extension Client {
         let fragment = FragmentResolver.fragment(for: T.self)
         let selectionSet = fragment.isEmpty ? "" : " { \(fragment) }"
         
-        if let _ = input {
-            let inputTypeName = String(describing: Input.self)
+        if let input {
+            let inputTypeName: String
+            if let named = input as? GraphQLNamed {
+                inputTypeName = named.graphQLTypeName
+            } else {
+                inputTypeName = String(describing: Input.self)
+            }
             return """
             \(kind.rawValue) \(operationName)($input: \(inputTypeName)!) {
                 \(camelCaseOperation)(input: $input)\(selectionSet)
@@ -112,6 +117,13 @@ extension String {
         let operation = self
         return operation.toGraphQLOperationName().prefix(1).lowercased() + operation.toGraphQLOperationName().dropFirst()
     }
+}
+
+/// Conform to this protocol to override the GraphQL input type name
+/// derived from `String(describing:)`. Useful when the Swift type name
+/// doesn't match the backend schema (e.g. generic wrappers).
+public protocol GraphQLNamed {
+    var graphQLTypeName: String { get }
 }
 
 /// GraphQL request structure
