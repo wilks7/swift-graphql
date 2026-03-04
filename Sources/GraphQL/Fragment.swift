@@ -27,6 +27,7 @@ extension Bool: Fragmentable { static var fragment: String { "" } }
 extension Double: Fragmentable { static var fragment: String { "" } }
 extension URL: Fragmentable { static var fragment: String { "" } }
 extension Date: Fragmentable { static var fragment: String { "" } }
+extension Decimal: Fragmentable { static var fragment: String { "" } }
 
 extension Array: Fragmentable where Element: Fragmentable {
     static var fragment: String {
@@ -301,6 +302,7 @@ private func dummyValue<T: Decodable>(for type: T.Type) throws -> T {
     if type == Date.self { return Date(timeIntervalSince1970: 0) as! T }
     if type == URL.self { return URL(string: "https://placeholder.invalid")! as! T }
     if type == Data.self { return Data() as! T }
+    if type == Decimal.self { return Decimal(0) as! T }
 
     // CaseIterable enum — return first case
     if let first = firstCaseIterableValue(of: type) {
