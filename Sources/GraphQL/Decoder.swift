@@ -75,6 +75,39 @@ public extension JSONDecoder.DateDecodingStrategy {
     }
 }
 
+// MARK: - Decimal from String
+
+/// Helpers for decoding GraphQL `Decimal` scalars, which are serialized as
+/// JSON strings (e.g. `"0.3713"`) by Strawberry and many other servers.
+///
+/// Use these in a custom `init(from:)` when your model has `Decimal` properties:
+/// ```swift
+/// utilityRate = try container.decodeDecimal(forKey: .utilityRate)
+/// ```
+public extension KeyedDecodingContainer {
+    func decodeDecimal(forKey key: Key) throws -> Decimal {
+        let string = try decode(String.self, forKey: key)
+        guard let value = Decimal(string: string) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key, in: self,
+                debugDescription: "Invalid decimal string: \(string)"
+            )
+        }
+        return value
+    }
+
+    func decodeDecimalIfPresent(forKey key: Key) throws -> Decimal? {
+        guard let string = try decodeIfPresent(String.self, forKey: key) else { return nil }
+        guard let value = Decimal(string: string) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key, in: self,
+                debugDescription: "Invalid decimal string: \(string)"
+            )
+        }
+        return value
+    }
+}
+
 // MARK: - Response Types
 
 struct Response<D: Decodable>: Decodable {

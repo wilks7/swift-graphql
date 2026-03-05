@@ -184,8 +184,18 @@ private struct IntrospectionKeyedContainer<Key: CodingKey>: KeyedDecodingContain
         introspector.fields.append((name: key.stringValue, subFragment: nil))
         return 0
     }
+    func decode(_ type: Decimal.Type, forKey key: Key) throws -> Decimal {
+        introspector.fields.append((name: key.stringValue, subFragment: nil))
+        return 0
+    }
 
     func decode<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T {
+        // Decimal is a struct but GraphQL treats it as a scalar (serialized as string).
+        if type == Decimal.self {
+            introspector.fields.append((name: key.stringValue, subFragment: nil))
+            return Decimal(0) as! T
+        }
+
         // Check if T is CaseIterable (enum with known cases) — before fragment resolution
         if let first = firstCaseIterableValue(of: type) {
             introspector.fields.append((name: key.stringValue, subFragment: nil))
@@ -202,6 +212,10 @@ private struct IntrospectionKeyedContainer<Key: CodingKey>: KeyedDecodingContain
     }
 
     func decodeIfPresent<T: Decodable>(_ type: T.Type, forKey key: Key) throws -> T? {
+        if type == Decimal.self {
+            introspector.fields.append((name: key.stringValue, subFragment: nil))
+            return nil
+        }
         // For optionals, capture the field but return nil (safe — no dummy value needed)
         let sub = FragmentResolver.fragment(for: T.self)
         introspector.fields.append((
