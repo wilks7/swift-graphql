@@ -77,34 +77,59 @@ public extension JSONDecoder.DateDecodingStrategy {
 
 // MARK: - Decimal from String
 
-/// Helpers for decoding GraphQL `Decimal` scalars, which are serialized as
-/// JSON strings (e.g. `"0.3713"`) by Strawberry and many other servers.
-///
-/// Use these in a custom `init(from:)` when your model has `Decimal` properties:
-/// ```swift
-/// utilityRate = try container.decodeDecimal(forKey: .utilityRate)
-/// ```
-public extension KeyedDecodingContainer {
-    func decodeDecimal(forKey key: Key) throws -> Decimal {
-        let string = try decode(String.self, forKey: key)
-        guard let value = Decimal(string: string) else {
-            throw DecodingError.dataCorruptedError(
-                forKey: key, in: self,
-                debugDescription: "Invalid decimal string: \(string)"
-            )
+/// GraphQL `Decimal` scalars are serialized as JSON strings (e.g. `"0.3713"`)
+/// by Strawberry and many other servers. These overloads let synthesized
+/// `Codable` decode `Decimal` properties transparently — no custom
+/// `init(from:)` needed on your model structs.
+extension KeyedDecodingContainer {
+    public func decode(_ type: Decimal.Type, forKey key: Key) throws -> Decimal {
+        if let value = try decodeIfPresent(Decimal.self, forKey: key) {
+            return value
         }
-        return value
+        throw DecodingError.valueNotFound(Decimal.self, .init(
+            codingPath: codingPath + [key],
+            debugDescription: "Expected Decimal but found null or missing value."
+        ))
     }
 
-    func decodeDecimalIfPresent(forKey key: Key) throws -> Decimal? {
-        guard let string = try decodeIfPresent(String.self, forKey: key) else { return nil }
-        guard let value = Decimal(string: string) else {
-            throw DecodingError.dataCorruptedError(
-                forKey: key, in: self,
-                debugDescription: "Invalid decimal string: \(string)"
-            )
+    public func decodeIfPresent(_ type: Decimal.Type, forKey key: Key) throws -> Decimal? {
+        guard contains(key) else { return nil }
+        if try decodeNil(forKey: key) { return nil }
+
+        if let stringValue = try? decode(String.self, forKey: key),
+           let decimalValue = Decimal(string: stringValue) {
+            return decimalValue
         }
-        return value
+        if let doubleValue = try? decode(Double.self, forKey: key) {
+            return Decimal(doubleValue)
+        }
+        if let intValue = try? decode(Int.self, forKey: key) {
+            return Decimal(intValue)
+        }
+
+        throw DecodingError.typeMismatch(Decimal.self, .init(
+            codingPath: codingPath + [key],
+            debugDescription: "Value for key '\(key.stringValue)' could not be converted to Decimal."
+        ))
+    }
+}
+
+extension SingleValueDecodingContainer {
+    public func decode(_ type: Decimal.Type) throws -> Decimal {
+        if let stringValue = try? decode(String.self),
+           let decimalValue = Decimal(string: stringValue) {
+            return decimalValue
+        }
+        if let doubleValue = try? decode(Double.self) {
+            return Decimal(doubleValue)
+        }
+        if let intValue = try? decode(Int.self) {
+            return Decimal(intValue)
+        }
+        throw DecodingError.typeMismatch(Decimal.self, .init(
+            codingPath: codingPath,
+            debugDescription: "Value could not be converted to Decimal."
+        ))
     }
 }
 
