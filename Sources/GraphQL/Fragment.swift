@@ -42,6 +42,10 @@ enum FragmentResolver {
         if let fragmentable = type as? any Fragmentable.Type {
             return fragmentable.fragment
         }
+        // Unwrap Optional<Wrapped> → resolve fragment for Wrapped
+        if let optionalType = type as? any DecodableOptionalProtocol.Type {
+            return optionalType.wrappedFragment
+        }
         // Unwrap Array<Element> → resolve fragment for Element
         if let arrayType = type as? any DecodableArrayProtocol.Type {
             return arrayType.elementFragment
@@ -54,6 +58,17 @@ enum FragmentResolver {
         let result = introspector.buildFragment()
         FragmentCache.shared.set(result, for: type)
         return result
+    }
+}
+
+/// Helper protocol to unwrap Optional<Wrapped> for fragment resolution.
+private protocol DecodableOptionalProtocol {
+    static var wrappedFragment: String { get }
+}
+
+extension Optional: DecodableOptionalProtocol where Wrapped: Decodable {
+    static var wrappedFragment: String {
+        FragmentResolver.fragment(for: Wrapped.self)
     }
 }
 

@@ -152,6 +152,16 @@ struct ErrorResponse: Decodable {
     }
 }
 
+/// Marker protocol so `KeyedDataWrapper` can detect `Optional<T>` at runtime
+/// and return `nil` instead of throwing when the GraphQL field is `null`.
+private protocol _OptionalProtocol {
+    static func _nilValue() -> Self
+}
+
+extension Optional: _OptionalProtocol {
+    static func _nilValue() -> Self { .none }
+}
+
 struct KeyedDataWrapper<D: Decodable>: Decodable {
     let value: D
 
@@ -168,7 +178,14 @@ struct KeyedDataWrapper<D: Decodable>: Decodable {
             throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing functionNameKey in userInfo"))
         }
         let dynamicKey = DynamicCodingKeys(stringValue: key)!
-        value = try container.decode(D.self, forKey: dynamicKey)
+
+        // When the field is null and D is Optional, decode as nil instead of throwing.
+        if try container.decodeNil(forKey: dynamicKey),
+           let optionalType = D.self as? any _OptionalProtocol.Type {
+            value = optionalType._nilValue() as! D
+        } else {
+            value = try container.decode(D.self, forKey: dynamicKey)
+        }
     }
 }
 

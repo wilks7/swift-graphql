@@ -4,16 +4,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "GraphQL",
+    name: "swift-graphql",
     platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(
             name: "GraphQL",
             targets: ["GraphQL"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.4.6"),
-    ],
+    dependencies: [],
     targets: [
         .target(
             name: "GraphQL"
